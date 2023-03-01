@@ -1,0 +1,27 @@
+rules_version = '2';
+
+function docNonExistentOrValidAlpha(res, req) {
+  return res == null || req.auth.uid.upper() == res.data.alphaCode.upper();
+}
+
+service cloud.firestore {
+  match /databases/{database}/documents {   
+    match /drive-iot-devices-config/{documentId} {
+      allow read: if request.auth != null && docNonExistentOrValidAlpha(resource, request)
+      allow write, create: if request.auth != null
+    }
+    match /drive-iot-devices-location/{documentId} {
+      allow read: if request.auth != null && docNonExistentOrValidAlpha(resource, request)
+      allow write, create: if request.auth != null
+    }
+    match /drive-user-feedback/{documentId} {
+      allow read: if request.auth != null && docNonExistentOrValidAlpha(resource, request)
+      allow write, create: if request.auth != null
+    }
+    match /driver-metadata/{documentId} {
+    	allow read: if request.auth != null && request.auth.uid.upper() == documentId.upper()
+      allow update: if request.auth != null && request.auth.uid.upper() == documentId.upper()
+      allow write, create: if request.auth != null
+    }
+  }
+}
