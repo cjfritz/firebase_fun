@@ -19,14 +19,11 @@ exports.checkForZeroTimestampRecords = functions
   })  
   .https.onRequest(async (req, res) => {
   let recordCounter = 0;
-  await db.collection('driver-metadata').get().then(snapshot => {
+  await db.collection('driver-metadata').where('lastStarRatingTimestamp', '==', 0).get().then(snapshot => {
     snapshot.forEach(doc => {
-      const { lastStarRatingTimestamp } = doc.data();
-      if (lastStarRatingTimestamp === 0) {
-        recordCounter++;
-        if (recordCounter < 11) {
-          console.log('record data:', doc.data());
-        }
+      recordCounter++;
+      if (recordCounter < 11) {
+        console.log('record data:', doc.data());
       }
     });
   })
@@ -42,24 +39,28 @@ exports.updateZeroTimestampRecords = functions
     memory: "1GB",
   })
   .https.onRequest(async (req, res) => {
-    const batch = db.batch();
+    const batches = [];
+    let batch = db.batch();
     let counter = 0;
-    await db.collection('driver-metadata').get().then(snapshot => {
-      snapshot.forEach(doc => {
-        const { lastStarRatingTimestamp } = doc.data();
-        if (lastStarRatingTimestamp === 0) {
-          const timestamp = Timestamp.now();
-          console.log('setting timestamp:', timestamp);
-          batch.set(doc.ref, { lastStarRatingTimestamp: Timestamp.now() }, { merge: true })
-          counter++
-          console.log('set batch, counter is', counter);
-          // doc.ref.set({ lastStarRatingTimestamp: Timestamp.now() }, { merge: true })
+    await db.collection('driver-metadata').where('lastStarRatingTimestamp', '==', 0).get().then(snapshot => {
+      snapshot.forEach((doc, index) => {
+        const timestamp = Timestamp.now();
+        console.log('setting timestamp:', timestamp);
+        batch.update(doc.ref, { lastStarRatingTimestamp: Timestamp.now() }) // Is this the timestamp we want to use in PROD?
+        if(++counter >= 500 || index === snapshot.length - 1) {
+          batches.push(batch.commit());
+          batch = db.batch();
+          counter = 0;
+          console.log('batch ended at index', index);
         }
+        // counter++
+        // console.log('set batch, counter is', counter);
+        // doc.ref.set({ lastStarRatingTimestamp: Timestamp.now() }, { merge: true })
       });
     })
-    .then(() => {
+    .then(async () => {
       console.log('committing batch writes');
-      return batch.commit();
+      return await Promise.all(batches);
     })
     .catch(err => {
       console.log('error encountered:', err);
