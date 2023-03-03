@@ -62,7 +62,7 @@ exports.updateZeroTimestampRecords = functions
     const docStream = db.collection('driver-metadata').where('lastStarRatingTimestamp', '==', 0).stream();
 
     docStream.on('data', docSnapshot => {
-      const batchUpdate = docSnapshotRef => batch.update(docSnapshot.ref, { lastStarRatingTimestamp: new Timestamp(1646892000) }); // Thursday, March 10, 2022 12:00:00 AM GMT-06:00
+      const batchUpdate = docSnapshotRef => batch.update(docSnapshot.ref, { lastStarRatingTimestamp: new Timestamp(1646892000, 0) }); // Thursday, March 10, 2022 12:00:00 AM
       totalDocsUpdated++;
 
       if (batch._opCount < 500) {
